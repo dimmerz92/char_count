@@ -1,5 +1,5 @@
 COMPILER = gcc
-CFLAGS = -Wall -pedantic
+CFLAGS = -g -Wall -pedantic
 
 EXES = char_count
 
