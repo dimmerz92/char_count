@@ -5,22 +5,29 @@
 #include <string.h>
 
 int parse_args(int argc, char *argv[], int *nprocs, DIR **dir);
-void get_files(DIR *dir, char *files[]);
+int get_files(DIR *dir, char **files);
 
 int main(int argc, char *argv[]) {
     DIR *dir;
     int nprocs;
-    char **files = NULL;
+    char **files;
 
     if (parse_args(argc, argv, &nprocs, &dir) < 0) {
         perror("Usage: char_count directory_name");
     }
-    
-    get_files(dir, files);
 
-    /*for (int n = 0; n < 2; n++) {
+    if ((files = malloc(sizeof(char *))) == NULL) {
+        perror("Could not allocate memory for files array\n");
+        return -1;
+    }
+    
+    if (get_files(dir, files) < 0) {
+        perror("Error getting files");
+    }
+
+    for (int n = 0; n < 2; n++) {
         printf("%s\n", files[n]);
-    }*/
+    }
     closedir(dir);
     free(files);
     return 0;
@@ -33,7 +40,7 @@ int parse_args(int argc, char *argv[], int *nprocs, DIR **dir) {
     return 0;
 }
 
-void get_files(DIR *dir, char *files[]) {
+int get_files(DIR *dir, char **files) {
     int i = 0;
     struct dirent *entry;
 
@@ -42,7 +49,11 @@ void get_files(DIR *dir, char *files[]) {
             strcmp(entry->d_name, "..") == 0) {
             continue;
         }
-        files = realloc(files, (i+1) * sizeof(char*));
+        if ((files = realloc(files, (i+1) * sizeof(char*))) == NULL) {
+            return -1;
+        }
         files[i] = entry->d_name;
+        i++;
     }
+    return 0;
 }
