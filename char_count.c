@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <regex.h>
 #include <stdlib.h>
 #include <dirent.h>
 #include <unistd.h>
@@ -12,22 +13,25 @@ int main(int argc, char *argv[]) {
     int nprocs;
     char **files;
 
+    /* parses arguments and sets initial variables */
     if (parse_args(argc, argv, &nprocs, &dir) < 0) {
-        perror("Usage: char_count directory_name");
+        fprintf(stderr, "Usage: char_count directory_name\n");
+        return -1;
     }
 
+    /* allocates memory to the array of filenames */
     if ((files = malloc(sizeof(char *))) == NULL) {
-        perror("Could not allocate memory for files array\n");
+        fprintf(stderr, "Could not allocate memory for files array\n");
         return -1;
     }
     
+    /* gets filenames "*.txt" and stores in array*/
     if (get_files(dir, files) < 0) {
-        perror("Error getting files");
+        fprintf(stderr, "Error getting files\n");
+        free(files);
+        return -1;
     }
 
-    for (int n = 0; n < 2; n++) {
-        printf("%s\n", files[n]);
-    }
     closedir(dir);
     free(files);
     return 0;
@@ -42,18 +46,22 @@ int parse_args(int argc, char *argv[], int *nprocs, DIR **dir) {
 
 int get_files(DIR *dir, char **files) {
     int i = 0;
+    regex_t regex;
     struct dirent *entry;
 
+    regcomp(&regex, "\\.txt$", 0);
+
     while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") == 0 ||
-            strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
-        if ((files = realloc(files, (i+1) * sizeof(char*))) == NULL) {
+        if (regexec(&regex, entry->d_name, 0, NULL, 0) != 0) continue;
+        if ((files = realloc(files, (i + 1) * sizeof(char *))) == NULL) {
             return -1;
         }
         files[i] = entry->d_name;
         i++;
+    }
+
+    if (i == 0) {
+        return -1;
     }
     return 0;
 }
