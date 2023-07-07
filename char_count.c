@@ -84,8 +84,7 @@ int main(int argc, char *argv[]) {
             fprintf(stderr, "Error receiving results\n");
             return -1;
         }
-        sum_counts(counts, received_counts);
-        print_hist(counts);
+        print_hist(received_counts);
     }
     
     return 0;
