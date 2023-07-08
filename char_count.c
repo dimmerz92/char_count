@@ -1,3 +1,21 @@
+/**
+ * Author:      Andrew Weymes
+ * Purpose:     Counts all alphabet characters casted to lower case in all .txt
+ *              files in a specified directory
+ * How to use:
+ *  CLI Usage:  ./char_count arg1 arg2
+ *  CLI arg1:   an integer reflecting the number of processes to spawn
+ *  CLI arg2:   a string containing the filepath to the directory containing all
+ *              .txt files to be counted
+ * 
+ * On Success:  Successful running will result in a return of 0 and text based
+ *              histogram of the sum of all individual alphabet characters in
+ *              the .txt files
+ * 
+ * On Failure:  Returns a negative integer and a brief description of the issue
+ *              encountered
+ **/
+
 #include <stdio.h>
 #include <fcntl.h>
 #include <ctype.h>
