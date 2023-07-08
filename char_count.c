@@ -87,6 +87,7 @@ int main(int argc, char *argv[]) {
         get_counts(dir_path, files[j], counts);
     }
 
+    /* Free files variables */
     for (int f = 0; f < nfiles; f++) {
         free(files[f]);
     }
@@ -94,25 +95,31 @@ int main(int argc, char *argv[]) {
 
     /* Send counts along the ring & print results*/
     int received_counts[27];
-    if (i) {
+    if (i) { // if not the original parent process
+        // get results from previous process
         if (read(STDIN_FILENO, received_counts, sizeof(received_counts)) < 0) {
             fprintf(stderr, "Error receiving results\n");
             return -1;
         }
+        // sum parent counts to current counts
         sum_counts(counts, received_counts);
+        // send summed counts to next process
         if (write(STDOUT_FILENO, counts, sizeof(counts)) < 0) {
             fprintf(stderr, "Error sending results\n");
             return -1;
         }
-    } else {
+    } else { // original parent entry
+        // send counts to next process
         if (write(STDOUT_FILENO, counts, sizeof(counts)) < 0) {
             fprintf(stderr, "Error sending results\n");
             return -1;
         }
+        // receive final total from last process
         if (read(STDIN_FILENO, received_counts, sizeof(received_counts)) < 0) {
             fprintf(stderr, "Error receiving results\n");
             return -1;
         }
+        // print the sums and histogram
         print_hist(received_counts);
     }
     
@@ -135,8 +142,10 @@ int get_files(DIR *dir, char ***files, int *nfiles, int nprocs) {
     regex_t regex;
     struct dirent *entry;
 
+    // use regular expression to check if file is .txt
     regcomp(&regex, "\\.txt$", 0);
 
+    // get name of all .txt files and add to array
     while ((entry = readdir(dir)) != NULL) {
         if (regexec(&regex, entry->d_name, 0, NULL, 0) != 0) continue;
         *files = realloc(*files, (*nfiles + 1) * sizeof(char *));
@@ -158,6 +167,7 @@ int get_files(DIR *dir, char ***files, int *nfiles, int nprocs) {
     return 0;
 }
 
+/* Initialises a trivial ring structure */
 int init_ring(void) {
     int fd[2];
 
@@ -173,6 +183,7 @@ int init_ring(void) {
     return 0;
 }
 
+/* Adds a new process node to the ring */
 int add_node(int *pid) {
     int fd[2];
 
@@ -194,6 +205,7 @@ int add_node(int *pid) {
     return 0;
 }
 
+/* Counts all alphabet characters casted to lowercase in a .txt file */
 int get_counts(char *path, char *filename, int *counts) {
     char c;
     FILE *file;
@@ -201,6 +213,7 @@ int get_counts(char *path, char *filename, int *counts) {
     size_t file_len = strlen(filename);
     char *path_to_file = malloc((path_len + file_len + 2) * sizeof(char));
 
+    // adds the correct file path separator depending on OS (Win/Linux)
     if (path[strlen(path)] == '/' || path[strlen(path)] == '\\') {
         strcpy(path_to_file, path);
         strcat(path_to_file, filename);
@@ -225,12 +238,14 @@ int get_counts(char *path, char *filename, int *counts) {
     return 0;
 }
 
+/* Adds the received counts array to the current counts array */
 void sum_counts(int *counts, int *received_counts) {
     for (int i = 0; i < 27; i++) {
         counts[i] += received_counts[i];
     }
 }
 
+/* Prints a histogram for the counts */
 void print_hist(int *counts) {
     int bar_height;
 
