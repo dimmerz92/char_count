@@ -16,7 +16,7 @@ const char SEP[] = "/";
 
 /* Pre-declared functions */
 int parse_args(int argc, char *argv[], int *nprocs, char *dir_path, DIR **dir);
-int get_files(DIR *dir, char **files, int nprocs);
+int get_files(DIR *dir, char ***files, int *nfiles, int nprocs);
 int init_ring(void);
 int add_node(int *pid);
 int get_counts(char *path, char *file, int *counts);
@@ -28,6 +28,7 @@ int main(int argc, char *argv[]) {
     int i;
     int pid;
     int nprocs;
+    int nfiles;
     char dir_path[strlen(argv[2])+1];
     DIR *dir;
     
@@ -38,8 +39,8 @@ int main(int argc, char *argv[]) {
     }
     
     /* gets filenames "*.txt" and stores in files array*/
-    char *files[nprocs];
-    if (get_files(dir, files, nprocs) < 0) {
+    char **files = NULL;
+    if (get_files(dir, &files, &nfiles, nprocs) < 0) {
         return -1;
     }
 
@@ -49,7 +50,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* Adds nodes to the ring */
-    for (i = 1; i < nprocs; i++) {
+    for (i = 0; i < nprocs - 1; i++) {
         if (add_node(&pid) < 0) {
             fprintf(stderr, "Error adding node\n");
             return -1;
@@ -57,15 +58,25 @@ int main(int argc, char *argv[]) {
         if (pid) break;
     }
 
-    /* Counts letters in file */
+    /* Counts letters in allocated file(s) */
     int counts[27] = {0};
-    if (get_counts(dir_path, files[i-1], counts) < 0) {
-        return -1;
+    int files_per_proc = nfiles / nprocs;
+    int extra_files = nfiles % nprocs;
+    int start = i * files_per_proc + (i + 1 <= extra_files ? i : extra_files);
+    int end = start + files_per_proc + (i + 1 <= extra_files ? 1 : 0);
+
+    for (int j=start; j<end; j++) {
+        get_counts(dir_path, files[j], counts);
     }
+
+    for (int f = 0; f < nfiles; f++) {
+        free(files[f]);
+    }
+    free(files);
 
     /* Send counts along the ring & print results*/
     int received_counts[27];
-    if (i-1) {
+    if (i) {
         if (read(STDIN_FILENO, received_counts, sizeof(received_counts)) < 0) {
             fprintf(stderr, "Error receiving results\n");
             return -1;
@@ -101,26 +112,27 @@ int parse_args(int argc, char *argv[], int *nprocs, char *dir_path, DIR **dir) {
 }
 
 /* uses regex to get all .txt files from dir arg and assigns to files arg */
-int get_files(DIR *dir, char **files, int nprocs) {
-    int i = 0;
+int get_files(DIR *dir, char ***files, int *nfiles, int nprocs) {
+    *nfiles = 0;
     regex_t regex;
     struct dirent *entry;
 
     regcomp(&regex, "\\.txt$", 0);
 
-    while ((entry = readdir(dir)) != NULL && i < nprocs) {
+    while ((entry = readdir(dir)) != NULL) {
         if (regexec(&regex, entry->d_name, 0, NULL, 0) != 0) continue;
-        files[i] = malloc(strlen(entry->d_name) + 1);
-        strcpy(files[i], entry->d_name);
-        i++;
+        *files = realloc(*files, (*nfiles + 1) * sizeof(char *));
+        (*files)[*nfiles] = malloc(strlen(entry->d_name) * sizeof(char) + 1);
+        strcpy((*files)[*nfiles], entry->d_name);
+        *nfiles+=1;
     }
 
     closedir(dir);
 
-    if (i == 0) {
+    if (*nfiles == 0) {
         fprintf(stderr, "Error no txt files in directory\n");
         return -1;
-    } else if (nprocs > i) {
+    } else if (nprocs > *nfiles) {
         fprintf(stderr, "Error user specified more processes than txt files\n");
         return -2;
     }
@@ -189,6 +201,7 @@ int get_counts(char *path, char *filename, int *counts) {
             counts[26]++;
         }
     }
+    free(path_to_file);
     fclose(file);
     return 0;
 }
