@@ -128,6 +128,7 @@ int get_files(DIR *dir, char ***files, int *nfiles, int nprocs) {
     }
 
     closedir(dir);
+    regfree(&regex);
 
     if (*nfiles == 0) {
         fprintf(stderr, "Error no txt files in directory\n");
